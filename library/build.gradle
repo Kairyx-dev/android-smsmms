@@ -1,28 +1,32 @@
-apply plugin: 'com.android.library'
+plugins {
+    id('com.android.library')
+}
 
 dependencies {
     implementation 'com.klinkerapps:logger:1.0.3'
     implementation 'com.squareup.okhttp:okhttp:2.5.0'
     implementation 'com.squareup.okhttp:okhttp-urlconnection:2.5.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
 }
 
 android {
-    compileSdkVersion 25
+    compileSdk 34
 
     defaultConfig {
-        minSdkVersion 14
-        targetSdkVersion 25
+        minSdkVersion 23
+        targetSdkVersion 34
     }
-
-    lintOptions {
+    lint {
         abortOnError false
     }
 
+
     useLibrary 'org.apache.http.legacy'
+    namespace 'com.klinker.android.send_message'
 }
 
-apply plugin: 'maven'
-apply plugin: 'signing'
+//apply plugin: 'maven'
+/*apply plugin: 'signing'
 
 def isReleaseBuild() {
     return !VERSION_NAME.contains("SNAPSHOT")
@@ -44,13 +48,13 @@ def getRepositoryUsername() {
 
 def getRepositoryPassword() {
     return hasProperty('NEXUS_PASSWORD') ? NEXUS_PASSWORD : ""
-}
-
+}*/
+/*
 afterEvaluate { project ->
     uploadArchives {
         repositories {
             mavenDeployer {
-                beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
+                //beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
 
                 pom.groupId = GROUP
                 pom.artifactId = POM_ARTIFACT_ID
@@ -98,4 +102,4 @@ afterEvaluate { project ->
         required { isReleaseBuild() && gradle.taskGraph.hasTask("uploadArchives") }
         sign configurations.archives
     }
-}
+}*/
