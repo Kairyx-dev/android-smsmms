@@ -23,13 +23,14 @@ import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.provider.Telephony;
-import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
 import android.text.TextUtils;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
+
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.klinker.android.logger.Log;
 import com.klinker.android.logger.OnLogListener;
@@ -97,14 +98,14 @@ public class MainActivity extends Activity {
     }
 
     private void initViews() {
-        setDefaultAppButton = (Button) findViewById(R.id.set_as_default);
-        selectApns = (Button) findViewById(R.id.apns);
-        fromField = (EditText) findViewById(R.id.from);
-        toField = (EditText) findViewById(R.id.to);
-        messageField = (EditText) findViewById(R.id.message);
-        imageToSend = (ImageView) findViewById(R.id.image);
-        sendButton = (Button) findViewById(R.id.send);
-        log = (RecyclerView) findViewById(R.id.log);
+        setDefaultAppButton = findViewById(R.id.set_as_default);
+        selectApns = findViewById(R.id.apns);
+        fromField = findViewById(R.id.from);
+        toField = findViewById(R.id.to);
+        messageField = findViewById(R.id.message);
+        imageToSend = findViewById(R.id.image);
+        sendButton = findViewById(R.id.send);
+        log = findViewById(R.id.log);
     }
 
     private void initActions() {
