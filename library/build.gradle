@@ -1,5 +1,6 @@
 plugins {
     id('com.android.library')
+    id("maven-publish")
 }
 
 dependencies {
@@ -23,8 +24,27 @@ android {
 
     useLibrary 'org.apache.http.legacy'
     namespace 'com.klinker.android.send_message'
+
+    publishing {
+        singleVariant("release")
+    }
 }
 
+afterEvaluate {
+    publishing {
+        publications {
+            release(MavenPublication) {
+                from components.release
+
+                groupId = "io.github.devkshull"
+                artifactId = "android-smsmms"
+                version = "1.0.0"
+            }
+        }
+    }
+}
+
+// original maven publish setting
 //apply plugin: 'maven'
 /*apply plugin: 'signing'
 

@@ -1,3 +1,12 @@
+# Fork Library
+This forked repository is migration of what is no longer maintained klinker's android-smsmms
+
+## What is different
+- Fix deprecated method
+- Fix changes to implicit broadcast of Android
+- Upgrade compile sdk, target sdk version
+- Add extra broadcast to noty when saved sms, mms
+
 # Android SMS/MMS Sending Library
 
 ![Promo](https://raw.githubusercontent.com/klinker41/android-smsmms/master/android-messaging.png)
