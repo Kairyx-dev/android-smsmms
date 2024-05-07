@@ -16,9 +16,15 @@
 
 package com.klinker.android.send_message;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.PendingIntent;
-import android.content.*;
+import android.content.BroadcastReceiver;
+import android.content.ContentResolver;
+import android.content.ContentValues;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.net.Uri;
@@ -30,22 +36,34 @@ import android.provider.Telephony;
 import android.telephony.SmsManager;
 import android.telephony.SmsMessage;
 import android.text.TextUtils;
+import android.util.Log;
+import android.widget.Toast;
+
+import androidx.core.content.ContextCompat;
 
 import com.android.mms.MmsConfig;
+import com.android.mms.dom.smil.parser.SmilXmlSerializer;
 import com.android.mms.service_alt.MmsNetworkManager;
 import com.android.mms.service_alt.MmsRequestManager;
 import com.android.mms.service_alt.SendRequest;
-import com.google.android.mms.util_alt.SqliteWrapper;
-import com.klinker.android.logger.Log;
-import android.widget.Toast;
-import com.android.mms.dom.smil.parser.SmilXmlSerializer;
 import com.android.mms.transaction.MmsMessageSender;
 import com.android.mms.transaction.ProgressCallbackEntity;
 import com.android.mms.util.DownloadManager;
 import com.android.mms.util.RateController;
-import com.google.android.mms.*;
-import com.google.android.mms.pdu_alt.*;
+import com.google.android.mms.ContentType;
+import com.google.android.mms.InvalidHeaderValueException;
+import com.google.android.mms.MMSPart;
+import com.google.android.mms.MmsException;
+import com.google.android.mms.pdu_alt.CharacterSets;
+import com.google.android.mms.pdu_alt.EncodedStringValue;
+import com.google.android.mms.pdu_alt.PduBody;
+import com.google.android.mms.pdu_alt.PduComposer;
+import com.google.android.mms.pdu_alt.PduHeaders;
+import com.google.android.mms.pdu_alt.PduPart;
+import com.google.android.mms.pdu_alt.PduPersister;
+import com.google.android.mms.pdu_alt.SendReq;
 import com.google.android.mms.smil.SmilHelper;
+import com.google.android.mms.util_alt.SqliteWrapper;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -53,7 +71,13 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Calendar;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Random;
+import java.util.Set;
 
 /**
  * Class to process transaction requests for sending
@@ -80,9 +104,13 @@ public class Transaction {
     public static String NOTIFY_SMS_FAILURE = ".NOTIFY_SMS_FAILURE";
     public static final String MMS_ERROR = "com.klinker.android.send_message.MMS_ERROR";
     public static final String REFRESH = "com.klinker.android.send_message.REFRESH";
+    public static final String SEND_SAVED_REFRESH = "com.klinker.android.send_message.SAVED.REFRESH";
     public static final String MMS_PROGRESS = "com.klinker.android.send_message.MMS_PROGRESS";
     public static final String NOTIFY_OF_DELIVERY = "com.klinker.android.send_message.NOTIFY_DELIVERY";
     public static final String NOTIFY_OF_MMS = "com.klinker.android.messaging.NEW_MMS_DOWNLOADED";
+
+    public static final String EXTRA_URI = "com.klinker.android.send_message.message.uri";
+    public static final String EXTRA_REFRESH_RESULT_CODE = "com.klinker.android.send_message.message.result.code";
 
     public static final long NO_THREAD_ID = 0;
 
@@ -124,6 +152,7 @@ public class Transaction {
      */
     public void sendNewMessage(Message message, long threadId,
                                Parcelable sentMessageParcelable, Parcelable deliveredParcelable) {
+        Log.v("Transaction","sendNewMessage2");
         this.saveMessage = message.getSave();
 
         // if message:
@@ -138,6 +167,7 @@ public class Transaction {
         //
         // then, send as MMS, else send as Voice or SMS
         if (checkMMS(message)) {
+            Log.v("Transaction","sendNewMessage2 is mms");
             try { Looper.prepare(); } catch (Exception e) { }
             RateController.init(context);
             DownloadManager.init(context);
@@ -169,6 +199,8 @@ public class Transaction {
      * @param threadId is the thread id of who to send the message to (can also be set to Transaction.NO_THREAD_ID)
      */
     public void sendNewMessage(Message message, long threadId) {
+        Log.v("Transaction","sendNewMessage");
+        //com.klinker.android.logger.Log.setDebug(true);
         this.sendNewMessage(message, threadId, new Bundle(), new Bundle());
     }
 
@@ -214,6 +246,10 @@ public class Transaction {
     private void sendSmsMessage(String text, String[] addresses, long threadId, int delay,
                                 Parcelable sentMessageParcelable, Parcelable deliveredParcelable) {
         Log.v("send_transaction", "message text: " + text);
+        Log.v("send_transaction", "addresses length : " + addresses.length);
+        if( addresses.length > 0 ) {
+            Log.v("send_transaction", "addresses[0] : " + addresses[0]);
+        }
         Uri messageUri = null;
         int messageId = 0;
         if (saveMessage) {
@@ -233,6 +269,11 @@ public class Transaction {
                 values.put("read", 1);
                 values.put("type", 4);
 
+                if (settings.getSubscriptionId() != Settings.DEFAULT_SUBSCRIPTION_ID &&
+                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+                    values.put(Telephony.Sms.SUBSCRIPTION_ID, settings.getSubscriptionId());
+                }
+
                 // attempt to create correct thread id if one is not supplied
                 if (threadId == NO_THREAD_ID || addresses.length > 1) {
                     threadId = Utils.getOrCreateThreadId(context, addresses[i]);
@@ -244,6 +285,11 @@ public class Transaction {
                 messageUri = context.getContentResolver().insert(Uri.parse("content://sms/"), values);
 
                 Log.v("send_transaction", "inserted to uri: " + messageUri);
+
+                Log.i("send_transaction", "saved refresh");
+                Intent savedIntent = new Intent();
+                savedIntent.putExtra(EXTRA_URI, messageUri.toString());
+                BroadcastUtils.sendExplicitBroadcast(context, savedIntent, SEND_SAVED_REFRESH);
 
                 Cursor query = context.getContentResolver().query(messageUri, new String[] {"_id"}, null, null, null);
                 if (query != null) {
@@ -267,7 +313,7 @@ public class Transaction {
                 sentIntent.putExtra("message_uri", messageUri == null ? "" : messageUri.toString());
                 sentIntent.putExtra(SENT_SMS_BUNDLE, sentMessageParcelable);
                 PendingIntent sentPI = PendingIntent.getBroadcast(
-                        context, messageId, sentIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+                        context, messageId, sentIntent, PendingIntent.FLAG_IMMUTABLE);
 
                 Intent deliveredIntent;
                 if (explicitDeliveredSmsReceiver == null) {
@@ -280,7 +326,7 @@ public class Transaction {
                 deliveredIntent.putExtra("message_uri", messageUri == null ? "" : messageUri.toString());
                 deliveredIntent.putExtra(DELIVERED_SMS_BUNDLE, deliveredParcelable);
                 PendingIntent deliveredPI = PendingIntent.getBroadcast(
-                        context, messageId, deliveredIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+                        context, messageId, deliveredIntent, PendingIntent.FLAG_IMMUTABLE);
 
                 ArrayList<PendingIntent> sPI = new ArrayList<PendingIntent>();
                 ArrayList<PendingIntent> dPI = new ArrayList<PendingIntent>();
@@ -407,6 +453,7 @@ public class Transaction {
                                 String[] imageNames, List<Message.Part> parts, String subject, boolean save, Uri messageUri) {
         // merge the string[] of addresses into a single string so they can be inserted into the database easier
         String address = "";
+        Log.v("Transaction","sendMmsMessage");
 
         for (int i = 0; i < addresses.length; i++) {
             address += addresses[i] + " ";
@@ -495,7 +542,12 @@ public class Transaction {
 
                 };
 
-                context.registerReceiver(receiver, filter);
+                ContextCompat.registerReceiver(
+                        context,
+                        receiver,
+                        filter,
+                        ContextCompat.RECEIVER_NOT_EXPORTED
+                );
             } catch (Throwable e) {
                 Log.e(TAG, "exception thrown", e);
             }
@@ -521,6 +573,7 @@ public class Transaction {
         }
     }
 
+    @SuppressLint("Range")
     public static MessageInfo getBytes(Context context, boolean saveMessage, String fromAddress,
                                        String[] recipients, MMSPart[] parts, String subject)
                 throws MmsException {
@@ -646,29 +699,45 @@ public class Transaction {
     public static final long DEFAULT_EXPIRY_TIME = 7 * 24 * 60 * 60;
     public static final int DEFAULT_PRIORITY = PduHeaders.PRIORITY_NORMAL;
 
+    @SuppressLint("NewApi")
     private static void sendMmsThroughSystem(Context context, String subject, List<MMSPart> parts, String fromAddress,
                                              String[] addresses, Intent explicitSentMmsReceiver, boolean save, Uri existingMessageUri) {
+
+        Log.v("Transaction","sendMmsThroughSystem");
         try {
             final String fileName = "send." + String.valueOf(Math.abs(new Random().nextLong())) + ".dat";
             File mSendFile = new File(context.getCacheDir(), fileName);
 
             SendReq sendReq = buildPdu(context, fromAddress, addresses, subject, parts);
-            Uri messageUri;
+            Uri messageUri = null;
             if (save) {
-                // this will be the default behavior if we do not explicitly set the save flag to false
-                PduPersister persister = PduPersister.getPduPersister(context);
-                messageUri = persister.persist(sendReq, Uri.parse("content://mms/outbox"),
-                        true, settings.getGroup(), null, settings.getSubscriptionId());
+                try{
+                    // this will be the default behavior if we do not explicitly set the save flag to false
+                    PduPersister persister = PduPersister.getPduPersister(context);
+                    messageUri = persister.persist(sendReq, Uri.parse("content://mms/outbox"),
+                            true, settings.getGroup(), null, settings.getSubscriptionId());
+
+                    Log.i("test", "mms saved broadcast send");
+
+                    Intent savedIntent = new Intent();
+                    savedIntent.putExtra(EXTRA_URI, messageUri.toString());
+                    BroadcastUtils.sendExplicitBroadcast(context,savedIntent,SEND_SAVED_REFRESH);
+                }
+                catch (Exception e) {
+                    e.printStackTrace();
+                }
             } else {
                 messageUri = existingMessageUri;
-                Log.v(TAG, messageUri.toString());
+                if( messageUri != null ) {
+                    Log.v(TAG, messageUri.toString());
 
-                // update message status to outbox in os database as we are trying to resend the same message
-                ContentValues values = new ContentValues(1);
-                values.put(Telephony.Mms.MESSAGE_BOX, Telephony.Mms.MESSAGE_BOX_OUTBOX);
-                int rowsUpdated = SqliteWrapper.update(context, context.getContentResolver(), messageUri, values,
-                        null, null);
-                Log.v(TAG, "rowsUpdated=" + rowsUpdated);
+                    // update message status to outbox in os database as we are trying to resend the same message
+                    ContentValues values = new ContentValues(1);
+                    values.put(Telephony.Mms.MESSAGE_BOX, Telephony.Mms.MESSAGE_BOX_OUTBOX);
+                    int rowsUpdated = SqliteWrapper.update(context, context.getContentResolver(), messageUri, values,
+                            null, null);
+                    Log.v(TAG, "rowsUpdated=" + rowsUpdated);
+                }
             }
 
             Intent intent;
@@ -679,10 +748,22 @@ public class Transaction {
                 intent = explicitSentMmsReceiver;
             }
 
-            intent.putExtra(MmsSentReceiver.EXTRA_CONTENT_URI, messageUri.toString());
+            int messageId = 0;
+            if (messageUri != null) {
+                intent.putExtra(MmsSentReceiver.EXTRA_CONTENT_URI, messageUri.toString());
+                Log.i(TAG, "get message id for pending intent");
+                Cursor query = context.getContentResolver().query(messageUri, new String[]{"_id"}, null, null, null);
+                if (query != null) {
+                    if (query.moveToFirst()) {
+                        messageId = query.getInt(0);
+                    }
+                    query.close();
+                }
+                Log.i(TAG, "message id is >> " + messageId);
+            }
             intent.putExtra(MmsSentReceiver.EXTRA_FILE_PATH, mSendFile.getPath());
             final PendingIntent pendingIntent = PendingIntent.getBroadcast(
-                    context, 0, intent, PendingIntent.FLAG_CANCEL_CURRENT);
+                    context, messageId, intent, PendingIntent.FLAG_IMMUTABLE);
 
             Uri writerUri = (new Uri.Builder())
                     .authority(context.getPackageName() + ".MmsFileProvider")
@@ -715,6 +796,7 @@ public class Transaction {
             configOverrides.putInt(SmsManager.MMS_CONFIG_MAX_MESSAGE_SIZE, MmsConfig.getMaxMessageSize());
 
             if (contentUri != null) {
+                Log.v("Transaction","sendMmsThroughSystem sendMultimediaMessage");
                 SmsManagerFactory.createSmsManager(settings).sendMultimediaMessage(context,
                         contentUri, null, configOverrides, pendingIntent);
             } else {
@@ -860,6 +942,10 @@ public class Transaction {
             mmsValues.put("sub", subject != null ? subject : "");
             mmsValues.put("sub_cs", 106);
             mmsValues.put("ct_t", "application/vnd.wap.multipart.related");
+            if (settings.getSubscriptionId() != Settings.DEFAULT_SUBSCRIPTION_ID &&
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+                mmsValues.put(Telephony.Mms.SUBSCRIPTION_ID, settings.getSubscriptionId());
+            }
 
             long imageBytes = 0;
 

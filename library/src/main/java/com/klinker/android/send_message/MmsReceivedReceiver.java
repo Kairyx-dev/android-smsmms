@@ -16,6 +16,8 @@
 
 package com.klinker.android.send_message;
 
+import static com.google.android.mms.pdu_alt.PduHeaders.STATUS_RETRIEVED;
+
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -54,8 +56,6 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static com.google.android.mms.pdu_alt.PduHeaders.STATUS_RETRIEVED;
-
 public abstract class MmsReceivedReceiver extends BroadcastReceiver {
     private static final String TAG = "MmsReceivedReceiver";
 
@@ -85,7 +85,7 @@ public abstract class MmsReceivedReceiver extends BroadcastReceiver {
     }
 
     @Override
-    public final void onReceive(final Context context, final Intent intent) {
+    public void onReceive(final Context context, final Intent intent) {
         Log.v(TAG, "MMS has finished downloading, persisting it to the database");
 
         final String path = intent.getStringExtra(EXTRA_FILE_PATH);

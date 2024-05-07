@@ -25,6 +25,8 @@ import android.database.Cursor;
 import android.database.sqlite.SqliteWrapper;
 import android.provider.Telephony.Mms.Rate;
 
+import androidx.core.content.ContextCompat;
+
 import com.android.mms.logs.LogTag;
 import com.klinker.android.logger.Log;
 
@@ -128,8 +130,12 @@ public class RateController {
         }
         sMutexLock = true;
 
-        mContext.registerReceiver(mBroadcastReceiver,
-                new IntentFilter(RATE_LIMIT_CONFIRMED_ACTION));
+        ContextCompat.registerReceiver(
+                mContext,
+                mBroadcastReceiver,
+                new IntentFilter(RATE_LIMIT_CONFIRMED_ACTION),
+                ContextCompat.RECEIVER_NOT_EXPORTED
+        );
 
         mAnswer = NO_ANSWER;
         try {

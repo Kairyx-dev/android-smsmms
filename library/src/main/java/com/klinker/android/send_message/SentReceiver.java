@@ -17,16 +17,20 @@
 package com.klinker.android.send_message;
 
 import android.app.Activity;
-import android.content.BroadcastReceiver;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
+import android.provider.Telephony;
 import android.telephony.SmsManager;
-import com.klinker.android.logger.Log;
+import android.util.Log;
 
-public abstract class SentReceiver extends StatusUpdatedReceiver {
+public class SentReceiver extends StatusUpdatedReceiver {
+
+    public void refreshData(Context context, Intent intent) {
+
+    }
 
     @Override
     public void updateInInternalDatabase(Context context, Intent intent, int resultCode) {
@@ -38,7 +42,7 @@ public abstract class SentReceiver extends StatusUpdatedReceiver {
                 case Activity.RESULT_OK:
                     if (uri != null) {
                         try {
-                            Log.v("sent_receiver", "using supplied uri");
+                            Log.v("sent_receiver", "sent success using supplied uri");
                             ContentValues values = new ContentValues();
                             values.put("type", 2);
                             values.put("read", 1);
@@ -55,6 +59,8 @@ public abstract class SentReceiver extends StatusUpdatedReceiver {
                 case SmsManager.RESULT_ERROR_NO_SERVICE:
                 case SmsManager.RESULT_ERROR_NULL_PDU:
                 case SmsManager.RESULT_ERROR_RADIO_OFF:
+                default:
+                    Log.v("sent_receiver", "sent failed code " + resultCode);
                     if (uri != null) {
                         Log.v("sent_receiver", "using supplied uri");
                         ContentValues values = new ContentValues();
@@ -87,7 +93,16 @@ public abstract class SentReceiver extends StatusUpdatedReceiver {
             e.printStackTrace();
         }
 
-        BroadcastUtils.sendExplicitBroadcast(context, new Intent(), Transaction.REFRESH);
+        Intent refreshIntent = new Intent();
+        refreshIntent.putExtra(Transaction.EXTRA_URI, uri.toString());
+        refreshIntent.putExtra(Transaction.EXTRA_REFRESH_RESULT_CODE, resultCode);
+        BroadcastUtils.sendExplicitBroadcast(context, refreshIntent, Transaction.REFRESH);
+        refreshData(context, intent);
+    }
+
+    @Override
+    public void onMessageStatusUpdated(Context context, Intent intent, int receiverResultCode) {
+        Log.v("sent_receiver", "onMessageStatusUpdated");
     }
 
     private Uri getUri(Intent intent) {

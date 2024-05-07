@@ -42,6 +42,8 @@ import android.provider.Telephony.MmsSms.PendingMessages;
 import android.text.TextUtils;
 import android.widget.Toast;
 
+import androidx.core.content.ContextCompat;
+
 import com.android.mms.logs.LogTag;
 import com.android.mms.service_alt.DownloadRequest;
 import com.android.mms.service_alt.MmsNetworkManager;
@@ -191,7 +193,12 @@ public class TransactionService extends Service implements Observer {
         mReceiver = new ConnectivityBroadcastReceiver();
         IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
-        registerReceiver(mReceiver, intentFilter);
+        ContextCompat.registerReceiver(
+                this,
+                mReceiver,
+                intentFilter,
+                ContextCompat.RECEIVER_NOT_EXPORTED
+        );
     }
 
     private void initServiceHandler() {
@@ -677,7 +684,7 @@ public class TransactionService extends Service implements Observer {
             }
         }
 
-        int result = mConnMgr.startUsingNetworkFeature(
+        /*int result = mConnMgr.startUsingNetworkFeature(
                 ConnectivityManager.TYPE_MOBILE, "enableMMS");
 
         if (Log.isLoggable(LogTag.TRANSACTION, Log.VERBOSE)) {
@@ -689,7 +696,7 @@ public class TransactionService extends Service implements Observer {
             case 1:
                 acquireWakeLock();
                 return result;
-        }
+        }*/
 
         throw new IOException("Cannot establish MMS connectivity");
     }
@@ -703,9 +710,9 @@ public class TransactionService extends Service implements Observer {
             // cancel timer for renewal of lease
             mServiceHandler.removeMessages(EVENT_CONTINUE_MMS_CONNECTIVITY);
             if (mConnMgr != null && Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-                mConnMgr.stopUsingNetworkFeature(
+                /*mConnMgr.stopUsingNetworkFeature(
                         ConnectivityManager.TYPE_MOBILE,
-                        "enableMMS");
+                        "enableMMS");*/
             }
         } finally {
             releaseWakeLock();

@@ -8,15 +8,14 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.database.Cursor;
-import android.database.sqlite.SqliteWrapper;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.PowerManager;
-import android.provider.Telephony;
 import android.telephony.SmsManager;
 import android.text.TextUtils;
+
+import androidx.core.content.ContextCompat;
 
 import com.android.mms.MmsConfig;
 import com.klinker.android.logger.Log;
@@ -48,21 +47,31 @@ public class DownloadManager {
 
     @TargetApi(Build.VERSION_CODES.LOLLIPOP)
     public void downloadMultimediaMessage(final Context context, final String location, Uri uri, boolean byPush, int subscriptionId) {
+        android.util.Log.v(TAG, "downloadMultimediaMessage subscriptionId : " + subscriptionId);
         if (location == null || mMap.get(location) != null) {
             return;
         }
+        android.util.Log.v(TAG, "downloadMultimediaMessage in");
 
         MmsDownloadReceiver receiver = new MmsDownloadReceiver();
         mMap.put(location, receiver);
 
         // Use unique action in order to avoid cancellation of notifying download result.
-        context.getApplicationContext().registerReceiver(receiver, new IntentFilter(receiver.mAction));
+        ContextCompat.registerReceiver(
+                context.getApplicationContext(),
+                receiver,
+                new IntentFilter(receiver.mAction),
+                ContextCompat.RECEIVER_NOT_EXPORTED
+        );
 
         Log.v(TAG, "receiving with system method");
         final String fileName = "download." + Math.abs(new Random().nextLong()) + ".dat";
+        String authority = context.getPackageName() + ".MmsFileProvider";
+        android.util.Log.v(TAG, "downloadMultimediaMessage authority : " + authority);
+
         File mDownloadFile = new File(context.getCacheDir(), fileName);
         Uri contentUri = (new Uri.Builder())
-                .authority(context.getPackageName() + ".MmsFileProvider")
+                .authority(authority)
                 .path(fileName)
                 .scheme(ContentResolver.SCHEME_CONTENT)
                 .build();
@@ -72,19 +81,25 @@ public class DownloadManager {
         download.putExtra(MmsReceivedReceiver.EXTRA_TRIGGER_PUSH, byPush);
         download.putExtra(MmsReceivedReceiver.EXTRA_URI, uri);
         download.putExtra(MmsReceivedReceiver.SUBSCRIPTION_ID, subscriptionId);
+        download.setPackage(context.getPackageName());
         final PendingIntent pendingIntent = PendingIntent.getBroadcast(
-                context, 0, download, PendingIntent.FLAG_CANCEL_CURRENT);
+                context, 0, download, PendingIntent.FLAG_CANCEL_CURRENT|PendingIntent.FLAG_MUTABLE);
 
         final SmsManager smsManager = SmsManagerFactory.createSmsManager(subscriptionId);
 
         Bundle configOverrides = new Bundle();
         String httpParams = MmsConfig.getHttpParams();
         if (!TextUtils.isEmpty(httpParams)) {
+            android.util.Log.v(TAG, "downloadMultimediaMessage httpParams : " + httpParams);
             configOverrides.putString(SmsManager.MMS_CONFIG_HTTP_PARAMS, httpParams);
         } else {
+            android.util.Log.v(TAG, "downloadMultimediaMessage httpParams isEmpty");
             // this doesn't seem to always work...
             // configOverrides = smsManager.getCarrierConfigValues();
         }
+
+        android.util.Log.v(TAG, "downloadMultimediaMessage location : " + location);
+        android.util.Log.v(TAG, "downloadMultimediaMessage contentUri : " + contentUri);
 
         grantUriPermission(context, contentUri);
         smsManager.downloadMultimediaMessage(context, location, contentUri, configOverrides, pendingIntent);
@@ -98,7 +113,7 @@ public class DownloadManager {
 
     private static class MmsDownloadReceiver extends BroadcastReceiver {
         private static final String ACTION_PREFIX = "com.android.mms.transaction.DownloadManager$MmsDownloadReceiver.";
-        private final String mAction;
+        public String mAction;
 
         MmsDownloadReceiver() {
             mAction = ACTION_PREFIX + UUID.randomUUID().toString();
@@ -107,6 +122,9 @@ public class DownloadManager {
         @Override
         public void onReceive(Context context, Intent intent) {
             context.unregisterReceiver(this);
+
+            Log.e("test","MmsDownloadReceiver onReceive");
+            android.util.Log.v(TAG, "MmsDownloadReceiver onReceive");
 
             PowerManager pm = (PowerManager)context.getSystemService(Context.POWER_SERVICE);
             PowerManager.WakeLock wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "smsmms:download-mms-lock");

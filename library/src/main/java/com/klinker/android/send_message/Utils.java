@@ -1,5 +1,6 @@
 package com.klinker.android.send_message;
 
+import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -301,6 +302,34 @@ public class Utils {
         return getOrCreateThreadId(context, recipients);
     }
 
+    public static String getThreadId( Context context, String number ) throws Exception {
+        Uri.Builder uriBuilder = Uri.parse("content://mms-sms/threadID").buildUpon();
+
+        if (isEmailAddress(number)) {
+            number = extractAddrSpec(number);
+        }
+
+        uriBuilder.appendQueryParameter("recipient", number);
+
+        Uri uri = uriBuilder.build();
+        Cursor cursor = SqliteWrapper.query(context, context.getContentResolver(),
+                uri, new String[]{"_id"}, null, null, null);
+        if (cursor != null) {
+            try {
+                if (cursor.moveToFirst()) {
+                    long id = cursor.getLong(0);
+                    cursor.close();
+                    return id + "";
+                } else {
+
+                }
+            } finally {
+                cursor.close();
+            }
+        }
+        return null;
+    }
+
     /**
      * Gets the current thread_id or creates a new one for the given recipient
      * @param context is the context of the activity or service
@@ -340,6 +369,8 @@ public class Utils {
         return random.nextLong();
         //throw new IllegalArgumentException("Unable to find or allocate a thread ID.");
     }
+
+
 
     public static boolean doesThreadIdExist(Context context, long threadId) {
         Uri uri = Uri.parse("content://mms-sms/conversations/" + threadId + "/");

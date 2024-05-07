@@ -35,21 +35,34 @@ public class MmsSentReceiver extends StatusUpdatedReceiver {
     public static final String EXTRA_CONTENT_URI = "content_uri";
     public static final String EXTRA_FILE_PATH = "file_path";
 
+    public void refreshData(Context context, Intent intent) {
+
+    }
+
     @Override
     public void updateInInternalDatabase(Context context, Intent intent, int resultCode) {
         Log.v(TAG, "MMS has finished sending, marking it as so, in the database");
-
         Uri uri = Uri.parse(intent.getStringExtra(EXTRA_CONTENT_URI));
-        Log.v(TAG, uri.toString());
 
-        ContentValues values = new ContentValues(1);
-        values.put(Telephony.Mms.MESSAGE_BOX, Telephony.Mms.MESSAGE_BOX_SENT);
-        SqliteWrapper.update(context, context.getContentResolver(), uri, values,
-                null, null);
+        try {
+            Log.v(TAG, uri.toString());
 
-        String filePath = intent.getStringExtra(EXTRA_FILE_PATH);
-        Log.v(TAG, filePath);
-        new File(filePath).delete();
+            ContentValues values = new ContentValues(1);
+            values.put(Telephony.Mms.MESSAGE_BOX, Telephony.Mms.MESSAGE_BOX_SENT);
+            SqliteWrapper.update(context, context.getContentResolver(), uri, values,
+                    null, null);
+
+            String filePath = intent.getStringExtra(EXTRA_FILE_PATH);
+            Log.v(TAG, filePath);
+            new File(filePath).delete();
+        }catch (NullPointerException e){
+            android.util.Log.e("MmsSentReceiver", e.toString());
+        }
+
+        Intent refreshIntent = new Intent();
+        refreshIntent.putExtra(Transaction.EXTRA_URI, uri.toString());
+        BroadcastUtils.sendExplicitBroadcast(context, refreshIntent, Transaction.REFRESH);
+        refreshData(context, intent);
     }
 
     @Override
