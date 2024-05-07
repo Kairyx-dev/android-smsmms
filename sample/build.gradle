@@ -2,15 +2,6 @@ plugins {
     id('com.android.application')
 }
 
-allprojects {
-    repositories {
-        mavenCentral()
-        maven {
-            url 'https://oss.sonatype.org/content/repositories/snapshots/'
-        }
-    }
-}
-
 android {
     compileSdk 34
     namespace 'com.klinker.android.messaging_sample'
