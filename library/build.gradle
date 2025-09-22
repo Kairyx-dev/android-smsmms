@@ -36,9 +36,9 @@ afterEvaluate {
             release(MavenPublication) {
                 from components.release
 
-                groupId = "io.github.devkshull"
+                groupId = "com.github.Kairyx-dev"
                 artifactId = "android-smsmms"
-                version = "1.0.0"
+                version = "1.0.1"
             }
         }
     }
